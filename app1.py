@@ -154,61 +154,23 @@ if uploaded_file is not None:
                 # 显示单位业绩汇总表
                 st.dataframe(summary_df)
                 
-                # 允许用户编辑地区信息
-                st.subheader("添加地区信息")
-                
-                # 获取所有唯一单位名称
-                all_companies = summary_df["单位名称"].unique().tolist()
-                
-                # 创建列以显示地区编辑界面
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    # 创建一个字典来存储每个单位的地区
-                    regions = {}
-                    unique_regions = ["成都市", "绵阳市", "德阳市", "自贡市", "泸州市", "其他"]
-                    
-                    # 添加选项让用户添加新的地区
-                    new_region = st.text_input("添加新地区")
-                    if new_region and new_region not in unique_regions:
-                        unique_regions.append(new_region)
-                    
-                    selected_region = st.selectbox("选择地区", unique_regions)
-                    selected_companies = st.multiselect("选择单位", all_companies)
-                    
-                    if st.button("分配地区"):
-                        for company in selected_companies:
-                            regions[company] = selected_region
-                        st.success(f"已将 {len(selected_companies)} 个单位分配到 {selected_region}")
-                
                 # 创建收款表
                 st.subheader("收款汇总表（按地区）")
                 
-                # 将当前选择的地区分配应用到summary_df
-                for company, region in regions.items():
-                    summary_df.loc[summary_df["单位名称"] == company, "地区"] = region
+                # 假设所有单位都位于成都市
+                summary_df["地区"] = "成都市"
                 
                 # 创建收款汇总表（按地区分组）
-                if regions:  # 只有当有地区分配时才创建
-                    # 过滤掉没有地区的行
-                    region_df = summary_df[summary_df["地区"] != ""].copy()
-                    
-                    if not region_df.empty:
-                        # 按地区分组并汇总金额
-                        region_summary = region_df.groupby("地区").agg({
-                            "金额": "sum",
-                            "开票金额": "sum",  # 这将合计非空值
-                            "师傅总路桥费": "sum",
-                            "代垫费": "sum",
-                            "外派金额": "sum"
-                        }).reset_index()
-                        
-                        # 显示收款汇总表
-                        st.dataframe(region_summary)
-                    else:
-                        st.info("尚未分配地区信息，无法生成收款汇总表")
-                else:
-                    st.info("请先分配地区信息以生成收款汇总表")
+                region_df = summary_df.copy()
+                region_summary = region_df.groupby("地区").agg({
+                    "金额": "sum",
+                    "师傅总路桥费": "sum",
+                    "代垫费": "sum",
+                    "外派金额": "sum"
+                }).reset_index()
+                
+                # 显示收款汇总表
+                st.dataframe(region_summary)
                 
                 # Data visualization
                 st.subheader("数据可视化")
@@ -229,36 +191,62 @@ if uploaded_file is not None:
                     st.subheader("单位金额分布")
                     st.bar_chart(summary_df.set_index('单位名称')['金额'])
                     
-                    # 如果有地区数据，显示地区分布
-                    if regions:
-                        region_data = summary_df[summary_df["地区"] != ""]
-                        if not region_data.empty:
-                            st.subheader("地区金额分布")
-                            st.bar_chart(region_data.groupby("地区").sum()['金额'])
+                    # 地区分布
+                    st.subheader("地区金额分布")
+                    st.bar_chart(region_summary.set_index("地区")['金额'])
                 
                 # Download the processed data
                 st.subheader("数据导出")
                 
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    sorted_df.to_excel(writer, sheet_name=f'{month}月师傅业绩', index=False)
-                    summary_df.to_excel(writer, sheet_name=f'{month}月单位业绩', index=False)
+                # 创建两个单独的下载按钮
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    # 下载师傅业绩表
+                    output1 = io.BytesIO()
+                    with pd.ExcelWriter(output1, engine='openpyxl') as writer:
+                        sorted_df.to_excel(writer, sheet_name=f'{month}月师傅业绩', index=False)
                     
-                    # 如果有地区数据，添加收款汇总表
-                    if regions and not region_df.empty:
+                    output1.seek(0)
+                    
+                    st.download_button(
+                        label="下载师傅业绩表",
+                        data=output1,
+                        file_name=f"{month}月师傅业绩.{file_ext}",
+                        mime=mime_type
+                    )
+                
+                with col2:
+                    # 下载单位业绩表
+                    output2 = io.BytesIO()
+                    with pd.ExcelWriter(output2, engine='openpyxl') as writer:
+                        summary_df.to_excel(writer, sheet_name=f'{month}月单位业绩', index=False)
+                    
+                    output2.seek(0)
+                    
+                    st.download_button(
+                        label="下载单位业绩表",
+                        data=output2,
+                        file_name=f"{month}月单位业绩.{file_ext}",
+                        mime=mime_type
+                    )
+                
+                with col3:
+                    # 下载综合报表
+                    output3 = io.BytesIO()
+                    with pd.ExcelWriter(output3, engine='openpyxl') as writer:
+                        sorted_df.to_excel(writer, sheet_name=f'{month}月师傅业绩', index=False)
+                        summary_df.to_excel(writer, sheet_name=f'{month}月单位业绩', index=False)
                         region_summary.to_excel(writer, sheet_name=f'{month}月收款汇总', index=False)
-                
-                output.seek(0)
-                
-                # Use the same file extension as the uploaded file
-                mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if file_ext == "xlsx" else "application/vnd.ms-excel"
-                
-                st.download_button(
-                    label="下载处理后的Excel文件",
-                    data=output,
-                    file_name=f"{month}月业绩汇总.{file_ext}",
-                    mime=mime_type
-                )
+                    
+                    output3.seek(0)
+                    
+                    st.download_button(
+                        label="下载综合报表",
+                        data=output3,
+                        file_name=f"{month}月业绩汇总.{file_ext}",
+                        mime=mime_type
+                    )
             except Exception as e:
                 st.error(f"处理单位数据时出错: {e}")
             
