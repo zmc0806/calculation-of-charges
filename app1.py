@@ -224,6 +224,6 @@ else:
 
 # Add some information at the bottom
 st.markdown("---")
-st.markdown("说明：此应用程序将分析月度业绩表，计算每位师傅的总金额、总单数、总路桥费和代垫费。同时提供单位业绩汇总以及按地区的收款汇总表。")
+st.markdown("说明：此应用程序将分析月度业绩表，计算每位师傅的总金额、总单数、总路桥费和代垫费。同时提供单位业绩汇总。")
 st.markdown("上传文件格式应为'X月业绩表.xlsx'或'X月业绩表.xls'，其中X为1-12。")
 st.markdown("注意：为使用拼音排序功能，请确保安装了pypinyin库：`pip install pypinyin`")
