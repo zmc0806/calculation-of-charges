@@ -198,6 +198,9 @@ if uploaded_file is not None:
                 # Download the processed data
                 st.subheader("数据导出")
                 
+                # 确定MIME类型
+                mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if file_ext == "xlsx" else "application/vnd.ms-excel"
+                
                 # 创建两个单独的下载按钮
                 col1, col2, col3 = st.columns(3)
                 
