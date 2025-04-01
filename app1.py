@@ -139,9 +139,7 @@ if uploaded_file is not None:
                 )
                 summary_df = summary_df.sort_values("单位名称拼音").drop(columns="单位名称拼音")
                 
-                # 筛选掉单位名称中含有"先生"或"女士"的行
-                summary_df = summary_df[~summary_df["单位名称"].str.contains("先生|女士", na=False)]
-                
+
                 # 在"收费方式"右边添加一个"地区"列
                 col_index = summary_df.columns.get_loc("收费方式") + 1
                 summary_df.insert(col_index, "地区", "")  # 空字符串填充
