@@ -154,24 +154,6 @@ if uploaded_file is not None:
                 # 显示单位业绩汇总表
                 st.dataframe(summary_df)
                 
-                # 创建收款表
-                st.subheader("收款汇总表（按地区）")
-                
-                # 假设所有单位都位于成都市
-                summary_df["地区"] = "成都市"
-                
-                # 创建收款汇总表（按地区分组）
-                region_df = summary_df.copy()
-                region_summary = region_df.groupby("地区").agg({
-                    "金额": "sum",
-                    "师傅总路桥费": "sum",
-                    "代垫费": "sum",
-                    "外派金额": "sum"
-                }).reset_index()
-                
-                # 显示收款汇总表
-                st.dataframe(region_summary)
-                
                 # Data visualization
                 st.subheader("数据可视化")
                 
@@ -190,10 +172,6 @@ if uploaded_file is not None:
                     # Bar chart for total amount by company
                     st.subheader("单位金额分布")
                     st.bar_chart(summary_df.set_index('单位名称')['金额'])
-                    
-                    # 地区分布
-                    st.subheader("地区金额分布")
-                    st.bar_chart(region_summary.set_index("地区")['金额'])
                 
                 # Download the processed data
                 st.subheader("数据导出")
@@ -202,7 +180,7 @@ if uploaded_file is not None:
                 mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if file_ext == "xlsx" else "application/vnd.ms-excel"
                 
                 # 创建两个单独的下载按钮
-                col1, col2, col3 = st.columns(3)
+                col1, col2 = st.columns(2)
                 
                 with col1:
                     # 下载师傅业绩表
@@ -231,23 +209,6 @@ if uploaded_file is not None:
                         label="下载单位业绩表",
                         data=output2,
                         file_name=f"{month}月单位业绩.{file_ext}",
-                        mime=mime_type
-                    )
-                
-                with col3:
-                    # 下载综合报表
-                    output3 = io.BytesIO()
-                    with pd.ExcelWriter(output3, engine='openpyxl') as writer:
-                        sorted_df.to_excel(writer, sheet_name=f'{month}月师傅业绩', index=False)
-                        summary_df.to_excel(writer, sheet_name=f'{month}月单位业绩', index=False)
-                        region_summary.to_excel(writer, sheet_name=f'{month}月收款汇总', index=False)
-                    
-                    output3.seek(0)
-                    
-                    st.download_button(
-                        label="下载综合报表",
-                        data=output3,
-                        file_name=f"{month}月业绩汇总.{file_ext}",
                         mime=mime_type
                     )
             except Exception as e:
