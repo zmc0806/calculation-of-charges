@@ -42,12 +42,12 @@ if uploaded_file is not None:
             qw = qw.reset_index()
             
             # Count records by 师傅姓名
-            re = data[['师傅姓名', '流水号']]
-            re = re.rename(columns={'流水号': '总单数'})
-            re = re.groupby('师傅姓名').count()
+            orders_df = data[['师傅姓名', '流水号']]
+            orders_df = orders_df.rename(columns={'流水号': '总单数'})
+            orders_df = orders_df.groupby('师傅姓名').count()
             
             # Merge the dataframes
-            merged_df = pd.merge(qw, re, on='师傅姓名')
+            merged_df = pd.merge(qw, orders_df, on='师傅姓名')
             
             # Define consistent order for 师傅姓名 (can be customized)
             default_order = ['蔡勇', '陈行辉', '高勇军', '孙琪琪', '孙涛', '唐正荣', '萧敏', '杨彬', '姚强']
