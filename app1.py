@@ -104,14 +104,13 @@ if uploaded_file is not None:
             # 创建单位业绩汇总
             try:
                 # 提取相关列
-                company_df = data[['单位名称', '收费方式', '金额', '师傅总路桥费', '代垫费', '外派金额']]
-                
-                # 按单位名称分组并汇总
-                if '收费方式' in company_df.columns:
+                if '单位名称' in data.columns and '收费方式' in data.columns:
+                    company_df = data[['单位名称', '收费方式', '金额', '师傅总路桥费', '代垫费', '外派金额']]
+                    
+                    # 修正: 按单位名称和收费方式一起分组并汇总
                     summary_df = (
-                        company_df.groupby("单位名称")
+                        company_df.groupby(["单位名称", "收费方式"])
                         .agg({
-                            "收费方式": "first",  # 取第一个值
                             "金额": "sum",
                             "师傅总路桥费": "sum",
                             "代垫费": "sum",
@@ -119,43 +118,42 @@ if uploaded_file is not None:
                         })
                         .reset_index()
                     )
+                    
+                    # 按拼音排序
+                    summary_df["单位名称拼音"] = summary_df["单位名称"].apply(
+                        lambda x: ''.join(lazy_pinyin(str(x)))
+                    )
+                    summary_df = summary_df.sort_values(["单位名称拼音", "收费方式"]).drop(columns="单位名称拼音")
+                    
+                    # 在"收费方式"右边添加一个"地区"列
+                    col_index = summary_df.columns.get_loc("收费方式") + 1
+                    summary_df.insert(col_index, "地区", "")  # 空字符串填充
+                    
+                    # 在"金额"右边添加"开票金额"和"到账时间"列
+                    col_index = summary_df.columns.get_loc("金额") + 1
+                    summary_df.insert(col_index, "开票金额", "")
+                    summary_df.insert(col_index + 1, "到账时间", "")
+                    
+                    # 显示单位业绩汇总表
+                    st.dataframe(summary_df)
+                    
+                    # 分别计算现金和签单总金额
+                    if '收费方式' in summary_df.columns:
+                        cash_total = summary_df[summary_df['收费方式'] == '现金']['金额'].sum()
+                        sign_total = summary_df[summary_df['收费方式'] == '签单']['金额'].sum()
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("现金总金额", f"{cash_total:,.2f}")
+                        with col2:
+                            st.metric("签单总金额", f"{sign_total:,.2f}")
                 else:
-                    # 如果没有收费方式列，创建默认值
-                    summary_df = (
-                        company_df.groupby("单位名称")
-                        .agg({
-                            "金额": "sum",
-                            "师傅总路桥费": "sum",
-                            "代垫费": "sum",
-                            "外派金额": "sum"
-                        })
-                        .reset_index()
-                    )
-                    summary_df["收费方式"] = "签单"  # 添加默认收费方式
-                
-                # 按拼音排序
-                summary_df["单位名称拼音"] = summary_df["单位名称"].apply(
-                    lambda x: ''.join(lazy_pinyin(str(x)))
-                )
-                summary_df = summary_df.sort_values("单位名称拼音").drop(columns="单位名称拼音")
-                
-
-                # 在"收费方式"右边添加一个"地区"列
-                col_index = summary_df.columns.get_loc("收费方式") + 1
-                summary_df.insert(col_index, "地区", "")  # 空字符串填充
-                
-                # 在"金额"右边添加"开票金额"和"到账时间"列
-                col_index = summary_df.columns.get_loc("金额") + 1
-                summary_df.insert(col_index, "开票金额", "")
-                summary_df.insert(col_index + 1, "到账时间", "")
-                
-                # 显示单位业绩汇总表
-                st.dataframe(summary_df)
-                
+                    st.warning("未找到'单位名称'或'收费方式'列，无法进行单位业绩分析")
+                    
                 # Data visualization
                 st.subheader("数据可视化")
                 
-                tab1, tab2 = st.tabs(["师傅业绩", "单位业绩"])
+                tab1, tab2, tab3 = st.tabs(["师傅业绩", "单位业绩", "收费方式分析"])
                 
                 with tab1:
                     # Bar chart for total amount by master
@@ -167,9 +165,26 @@ if uploaded_file is not None:
                     st.bar_chart(sorted_df.set_index('师傅姓名')['总单数'])
                 
                 with tab2:
+                    # 为单位业绩创建一个临时DataFrame，按单位汇总
+                    company_summary = summary_df.groupby('单位名称')['金额'].sum().reset_index()
                     # Bar chart for total amount by company
                     st.subheader("单位金额分布")
-                    st.bar_chart(summary_df.set_index('单位名称')['金额'])
+                    st.bar_chart(company_summary.set_index('单位名称')['金额'])
+                
+                with tab3:
+                    # Pie chart for 收费方式
+                    st.subheader("收费方式分布")
+                    payment_summary = summary_df.groupby('收费方式')['金额'].sum().reset_index()
+                    st.write("收费方式金额分布:")
+                    st.dataframe(payment_summary)
+                    # 创建饼图
+                    fig = {
+                        'data': [{'type': 'pie', 
+                                 'labels': payment_summary['收费方式'], 
+                                 'values': payment_summary['金额']}],
+                        'layout': {'title': '收费方式分布'}
+                    }
+                    st.plotly_chart(fig)
                 
                 # Download the processed data
                 st.subheader("数据导出")
@@ -177,8 +192,8 @@ if uploaded_file is not None:
                 # 确定MIME类型
                 mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if file_ext == "xlsx" else "application/vnd.ms-excel"
                 
-                # 创建两个单独的下载按钮
-                col1, col2 = st.columns(2)
+                # 创建三个单独的下载按钮
+                col1, col2, col3 = st.columns(3)
                 
                 with col1:
                     # 下载师傅业绩表
@@ -209,6 +224,23 @@ if uploaded_file is not None:
                         file_name=f"{month}月单位业绩.{file_ext}",
                         mime=mime_type
                     )
+                    
+                with col3:
+                    # 下载完整数据
+                    output3 = io.BytesIO()
+                    with pd.ExcelWriter(output3, engine='openpyxl') as writer:
+                        sorted_df.to_excel(writer, sheet_name=f'{month}月师傅业绩', index=False)
+                        summary_df.to_excel(writer, sheet_name=f'{month}月单位业绩', index=False)
+                        payment_summary.to_excel(writer, sheet_name='收费方式汇总', index=False)
+                    
+                    output3.seek(0)
+                    
+                    st.download_button(
+                        label="下载完整报表",
+                        data=output3,
+                        file_name=f"{month}月完整业绩报表.{file_ext}",
+                        mime=mime_type
+                    )
             except Exception as e:
                 st.error(f"处理单位数据时出错: {e}")
             
@@ -222,6 +254,6 @@ else:
 
 # Add some information at the bottom
 st.markdown("---")
-st.markdown("说明：此应用程序将分析月度业绩表，计算每位师傅的总金额、总单数、总路桥费和代垫费。同时提供单位业绩汇总。")
+st.markdown("说明：此应用程序将分析月度业绩表，计算每位师傅的总金额、总单数、总路桥费和代垫费。同时按照收费方式区分提供单位业绩汇总。")
 st.markdown("上传文件格式应为'X月业绩表.xlsx'或'X月业绩表.xls'，其中X为1-12。")
 st.markdown("注意：为使用拼音排序功能，请确保安装了pypinyin库：`pip install pypinyin`")
